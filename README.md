@@ -1,13 +1,14 @@
-![Screenshot 2025-02-09 164640](https://github.com/user-attachments/assets/f90c7bb0-f603-4f5b-b520-7c1ca6380eb5)
+
+![image](https://github.com/user-attachments/assets/df8538d3-d6a0-45e0-8a46-77f71353cb66)
 
 
-# or0toshell
+# Orochi Shell V2.3
 
-or0toshell is an advanced PHP web shell designed for penetration testers, bug bounty hunters, and security researchers. It provides a powerful terminal interface and an intuitive file explorer that lets you execute commands, manage files, and navigate directories directly from your web browser. Engineered to bypass common upload restrictions and server blocks, or0toshell is your tool of choice for testing server defenses in controlled, authorized environments.
+Orochi Shell V2.3 is an advanced PHP web shell designed for penetration testers, bug bounty hunters, and security researchers. It provides a powerful terminal interface and an intuitive file explorer that lets you execute commands, manage files, and navigate directories directly from your web browser. Engineered to bypass common upload restrictions and server blocks, Orochi Shell V2.3 is your tool of choice for testing server defenses in controlled, authorized environments.
 
 ## Overview
 
-or0toshell offers a robust set of features in a single, easy-to-use tool. Whether you're executing system commands, managing files, or exploring directories, or0toshell delivers real-time output and immediate feedback—all without reloading the page.
+Orochi Shell V2.3 offers a robust set of features in a single, easy-to-use tool. Whether you're executing system commands, managing files, or exploring directories, Orochi Shell V2.3 delivers real-time output and immediate feedback—all without reloading the page.
 
 ## Key Features
 
@@ -21,7 +22,7 @@ or0toshell offers a robust set of features in a single, easy-to-use tool. Whethe
   Overcome standard file upload restrictions and server blocks using advanced PHP file handling techniques. This feature allows you to upload files even when conventional methods are blocked.
 
 - **Bypass Server Blocks:**  
-  Test server defenses by working around common limitations imposed on uploads and command executions. or0toshell is engineered to work around these obstacles (only in authorized testing scenarios).
+  Test server defenses by working around common limitations imposed on uploads and command executions. Orochi Shell V2.3 is engineered to work around these obstacles (only in authorized testing scenarios).
 
 - **Dark/Light Theme Toggle:**  
   Switch seamlessly between dark and light modes for optimal readability in any environment.
@@ -31,7 +32,7 @@ or0toshell offers a robust set of features in a single, easy-to-use tool. Whethe
 
 ## UI/UX Enhancements
 
-or0toshell offers a modern, responsive design that adapts to desktops, tablets, and mobile devices. AJAX-powered interactions ensure that commands, file uploads, and directory navigations occur instantly without page reloads, providing a smooth and intuitive user experience.
+Orochi Shell V2.3 offers a modern, responsive design that adapts to desktops, tablets, and mobile devices. AJAX-powered interactions ensure that commands, file uploads, and directory navigations occur instantly without page reloads, providing a smooth and intuitive user experience.
 
 ## Installation
 
@@ -44,7 +45,7 @@ or0toshell offers a modern, responsive design that adapts to desktops, tablets, 
 
 2. **Configure Your Web Server:**
 
-   Set your web server’s document root to the or0toshell directory or deploy the files in your chosen location. Ensure your server supports PHP (version 7.4 or higher) and that file uploads are enabled if you plan to use the upload bypass feature.
+   Set your web server’s document root to the Orochi Shell V2.3 directory or deploy the files in your chosen location. Ensure your server supports PHP (version 7.4 or higher) and that file uploads are enabled if you plan to use the upload bypass feature.
 
 3. **Access the Web Shell:**
 
@@ -63,14 +64,14 @@ or0toshell offers a modern, responsive design that adapts to desktops, tablets, 
   Use commands like `cd` and `pwd` to change and view your current directory, or click on directories in the file explorer for quick navigation.
 
 - **Uploading Files:**  
-  Use the integrated file upload form to bypass typical file upload restrictions. or0toshell’s advanced upload bypass allows file transfers even when conventional methods are blocked.
+  Use the integrated file upload form to bypass typical file upload restrictions. Orochi Shell V2.3’s advanced upload bypass allows file transfers even when conventional methods are blocked.
 
 - **Bypassing Restrictions:**  
-  Designed for authorized testing, or0toshell can work around common server-imposed limitations on uploads and file access.
+  Designed for authorized testing, Orochi Shell V2.3 can work around common server-imposed limitations on uploads and file access.
 
 ## Security Notice
 
-or0toshell is intended exclusively for authorized penetration testing, security research, and educational purposes. Do not deploy or use this tool on publicly accessible servers without strict security measures. Unauthorized use is illegal and may result in severe consequences.
+Orochi Shell V2.3 is intended exclusively for authorized penetration testing, security research, and educational purposes. Do not deploy or use this tool on publicly accessible servers without strict security measures. Unauthorized use is illegal and may result in severe consequences.
 
 ## Contributing
 
@@ -78,7 +79,7 @@ Contributions are welcome! If you have ideas for new features, UI/UX enhancement
 
 ## License
 
-or0toshell is licensed under the MIT License. See the LICENSE file for full details.
+Orochi Shell V2.3 is licensed under the MIT License. See the LICENSE file for full details.
 
 ---
 
